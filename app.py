@@ -1,67 +1,85 @@
 from datetime import datetime
+
+import dotenv
 import pandas as pd
 import panel as pn
 import plotly.graph_objs as go
 import locale
+import os
+
+from bokeh.settings import settings
+from dotenv import load_dotenv
+from pandas.core.computation import expressions
+
+load_dotenv(".strava.secrets")
+
+print(os.environ.get("STRAVA_CLIENT_ID"))
+print(os.environ.get("STRAVA_CLIENT_SECRET"))
 
 
-from strava_client.client import StravaClient
+from stravalib import Client
 
-api = StravaClient()
-
+client = Client(
+    access_token=os.environ.get("ACCESS_TOKEN"),
+    refresh_token=os.environ.get("REFRESH_TOKEN"),
+    token_expires=int(os.environ.get("EXPIRES_AT"))
+)
 
 pn.extension('perspective', 'plotly', 'echarts')
 
 
-def get_data():
-    return pd.read_csv("data/export_171438604_20251105/activities.csv",
-                       parse_dates=['Activity Date']
-                       )
+# activity_mapping = {
+#     "Run": "Course",
+#     "Walk": "Marche",
+#     "Swim": "Natation",
+#     "Ride": "Vélo",
+#     "Hike": "Randonnée",
+#     "MountainBikeRide": "VTT",
+#     "Yoga": "Yoga",
+#     "TrailRun": "Trail",
+#     "AlpineSki": "Ski alpin"
+# }
 
-df = get_data()
-df.info()
+activities = client.get_activities()
 
-activity_mapping = {
-    "Run": "Course",
-    "Walk": "Marche",
-    "Swim": "Natation",
-    "Ride": "Vélo",
-    "Hike": "Randonnée",
-    "MountainBikeRide": "VTT",
-    "Yoga": "Yoga",
-    "TrailRun": "Trail",
-}
+for i,a in enumerate(activities):
+    print(type(a))
+    if i > 2:
+        break
 
-activities = api.get_activities(per_page=200)
-print(activities[0])
-
-df_api = pd.DataFrame([
+df = pd.DataFrame([
     {
         "Activity Name": a.name,
         "Activity Date": a.start_date_local,
-        "Sport": activity_mapping[a.sport_type.value],
-        "Distance (km)": round(a.distance / 1000,1),  # convert to km
-        "Moving Time (min)": round(a.moving_time / 60),  # convert to minutes"
-        "Elapsed Time (min)": round(a.elapsed_time / 60),  # convert to minutes
+        "Sport": a.sport_type.root,
+        "Distance": a.distance,
+        "Moving Time": a.moving_time,
+        "Elapsed Time": a.elapsed_time,
         "Total Elevation Gain": a.total_elevation_gain,
-        "Average Speed": round(a.average_speed * 3.6,1) if a.average_speed else 0,  # convert to km/h
-        "Max Speed": round(a.max_speed * 3.6,1) if a.max_speed else 0,  # convert to km/h
-        # "Average cadence": a.average_cadence
+        "Average Speed": a.average_speed,
+        "Max Speed": a.max_speed,
+        "Average cadence": a.average_cadence,
+        "Average heart rate": a.average_heartrate,
+        "Max heart rate": a.max_heartrate,
+        "Average power": a.average_watts,
     }
     for a in activities
 ])
 
-activity_types = df_api["Sport"].unique()
+print(df["Elapsed Time"].sum())
+
+activity_types = df["Sport"].unique()
 
 
-total_dist_api = sum([a.distance for a in activities])
-total_days_on_strava = (datetime.now() - activities[-1].start_date_local.replace(tzinfo=None)).days
+print(f"refresh_token={client.refresh_token}")
 
-
+total_dist = df["Distance"].sum()
+total_time = df["Elapsed Time"].sum()
+total_days_on_strava = (datetime.now() - df.tail(1)["Activity Date"].iloc[0].replace(tzinfo=None)).days
 
 # print(df.groupby(df["Activity Date"].dt.weekday)["Distance"].sum().reset_index().rename(columns={"Activity Date": "Month", "Distance": "Total Distance (km)"}))
 
-# dff = df[["Activity Date", "Activity Name", "Activity Type", "Elapsed Time"]].groupby("Activity Type").sum("Elapsed Time")
+dff = df[["Activity Date", "Activity Name", "Sport", "Elapsed Time"]].groupby("Sport")["Elapsed Time"].sum()
 
 #graphs
 # * Distance / activité / mois
@@ -70,21 +88,51 @@ total_days_on_strava = (datetime.now() - activities[-1].start_date_local.replace
 
 # component = pn.pane.panel(dff)
 
-summary_row = pn.Row(
-    pn.Column(
-        pn.pane.Markdown(f"# {len(activities)} Activités depuis {total_days_on_strava} jours"),
-        pn.pane.Markdown(f"# {total_dist_api/1000:.0f} km parcourus"),
+# summary_vega = {
+#     "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
+#     "data": {"data": activities },
+#
+#     # "layer": [
+#     #     {
+#     #         "mark": "bar",
+#     #
+#     #     }
+#     # ]
+# }
+
+summary_row = pn.Column(
+    pn.FlexBox(
+        pn.widgets.Number(name="Activités", value=len(df), disabled=True),
+        pn.widgets.Number(name="Jours", value=total_days_on_strava, disabled=True),
+        pn.widgets.Number(name="Distance", value=round(total_dist/1000), disabled=True),
+        pn.widgets.Number(name="Heures", value=round(total_time/3600), disabled=True),
+        pn.widgets.Number(name="Dénivelé", value=round(df["Total Elevation Gain"].sum()), disabled=True),
+        justify_content="space-around", gap="16px"
     ),
-    pn.pane.Perspective(
-        df_api,
-        plugin="d3_xy_scatter",
-        columns=["Activity Date", "Distance (km)"],
-        height=300, sizing_mode="stretch_width")
+
+        pn.pane.Perspective(
+            df,
+            plugin="d3_y_bar",
+            columns=["temps"],
+            split_by=["Sport"],
+            sort=[["Activity Date", "asc"]],
+            expressions={"distance_km": '"Distance"/1000', "temps": '"Elapsed Time"/60'},
+            height=300, sizing_mode="stretch_width",
+            settings=False,
+            title="Activités par sport (temps en minutes)"
+        ),
+
+        # pn.pane.Vega(summary_vega),
+
+        pn.Row(
+            pn.widgets.RadioButtonGroup(name="value type", options=['Occurence','Temps de pratique', 'Distance', 'Dénivelé'], button_style="outline", button_type="primary"),
+            pn.widgets.RadioButtonGroup(name="interval", options=['Jours', 'Semaines', 'Mois', 'Années'], button_style="outline", button_type="primary"),
+        ),
 )
 
 row1 = pn.Row(
     pn.pane.Plotly(
-        df.groupby(pd.Grouper(key="Activity Date", freq="M"))["Distance"]
+        df.groupby(pd.Grouper(key="Activity Date", freq="ME"))["Distance"]
             .sum()
             .reset_index()
             .pipe(
@@ -106,10 +154,10 @@ row1 = pn.Row(
         sizing_mode="stretch_width",
     ),
     pn.pane.Plotly(
-        df.groupby([pd.Grouper(key="Activity Date", freq="W-MON"), "Activity Type"])["Distance"]
+        df.groupby([pd.Grouper(key="Activity Date", freq="W-MON"), "Sport"])["Distance"]
             .sum()
             .reset_index()
-            .pivot(index="Activity Date", columns="Activity Type", values="Distance")
+            .pivot(index="Activity Date", columns="Sport", values="Distance")
             .fillna(0)
             .pipe(
                 lambda pivot: {
@@ -124,7 +172,7 @@ row1 = pn.Row(
                         for col in pivot.columns
                     ],
                     "layout": {
-                        "title": "Weekly Distance by Activity Type (Stacked)",
+                        "title": "Weekly Distance by Sport (Stacked)",
                         "barmode": "stack",
                         "xaxis": {"title": "Week"},
                         "yaxis": {"title": "Total Distance (km)"},
@@ -136,9 +184,9 @@ row1 = pn.Row(
     ),
 )
 
-df_months = df.groupby(pd.Grouper(key="Activity Date", freq="M"))["Distance"].sum()
+df_months = df.groupby(pd.Grouper(key="Activity Date", freq="ME"))["Distance"].sum()
 df_months2 = df.resample("1W", on="Activity Date", offset="1W").agg({"Distance": "sum", "Max Speed": "max"})
-df_month3 = df.groupby([pd.Grouper(key="Activity Date", freq="W-MON"), "Activity Type"])["Distance"].sum()
+df_month3 = df.groupby([pd.Grouper(key="Activity Date", freq="W-MON"), "Sport"])["Distance"].sum()
 
 row2 = pn.Row(
     pn.pane.DataFrame(df_months),
@@ -175,10 +223,10 @@ row2 = pn.Row(
     #     ]
     # # }, options={"opts": {"renderer":"svg"}
     # }, sizing_mode="stretch_width", height=500)
-    pn.pane.ECharts(df.groupby([pd.Grouper(key="Activity Date", freq="W-MON"), "Activity Type"])["Distance"]
+    pn.pane.ECharts(df.groupby([pd.Grouper(key="Activity Date", freq="W-MON"), "Sport"])["Distance"]
             .sum()
             .reset_index()
-            .pivot(index="Activity Date", columns="Activity Type", values="Distance")
+            .pivot(index="Activity Date", columns="Sport", values="Distance")
             .fillna(0)
             .pipe(
                 lambda pivot: {
@@ -193,7 +241,7 @@ row2 = pn.Row(
                         for col in pivot.columns
                     ],
                     "layout": {
-                        "title": "Weekly Distance by Activity Type (Stacked)",
+                        "title": "Weekly Distance by Sport (Stacked)",
                         "barmode": "stack",
                         "xaxis": {"title": "Week"},
                         "yaxis": {"title": "Total Distance (km)"},
@@ -256,12 +304,13 @@ tabs = pn.Tabs( ("Résumé global", pn.Column(summary_row, row1, row2, row3)), d
 for a in activity_types:
     tabs.append( (f"# {a}", pn.Column()) )
 
-tabs.append(("Raw data", pn.pane.DataFrame(df_api, sizing_mode="stretch_width")))
-tabs.append(("Raw data (perspective)", pn.pane.Perspective(df_api, sizing_mode="stretch_both")))
+tabs.append(("Raw data", pn.pane.DataFrame(df, sizing_mode="stretch_width")))
+tabs.append(("Raw data (perspective)", pn.pane.Perspective(df, sizing_mode="stretch_both")))
 
-pn.template.VanillaTemplate(
+pn.template.FastListTemplate(
     title="Strava analyzer",
     # main = [summary_row, row2, row3, pn.pane.Perspective(df, sizing_mode="stretch_both")],
     main = tabs,
-    # accent = "orange"
+    # accent = "orange",
+    accent = "#FC5200"
 ).servable()

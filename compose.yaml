@@ -1,0 +1,8 @@
+name: strava-analyzer
+
+services:
+  panel:
+    build: .
+    ports:
+      - "5006:5006"
+    restart: unless-stopped

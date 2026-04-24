@@ -1,29 +1,11 @@
-from datetime import datetime
-
-import dotenv
 import pandas as pd
 import panel as pn
 import plotly.graph_objs as go
 import locale
 import os
 
-from bokeh.settings import settings
-from dotenv import load_dotenv
-from pandas.core.computation import expressions
-
-load_dotenv(".strava.secrets")
-
-print(os.environ.get("STRAVA_CLIENT_ID"))
-print(os.environ.get("STRAVA_CLIENT_SECRET"))
-
-
-from stravalib import Client
-
-client = Client(
-    access_token=os.environ.get("ACCESS_TOKEN"),
-    refresh_token=os.environ.get("REFRESH_TOKEN"),
-    token_expires=int(os.environ.get("EXPIRES_AT"))
-)
+from datetime import datetime
+from data import get_data
 
 pn.extension('perspective', 'plotly', 'echarts')
 
@@ -40,38 +22,10 @@ pn.extension('perspective', 'plotly', 'echarts')
 #     "AlpineSki": "Ski alpin"
 # }
 
-activities = client.get_activities()
 
-for i,a in enumerate(activities):
-    print(type(a))
-    if i > 2:
-        break
-
-df = pd.DataFrame([
-    {
-        "Activity Name": a.name,
-        "Activity Date": a.start_date_local,
-        "Sport": a.sport_type.root,
-        "Distance": a.distance,
-        "Moving Time": a.moving_time,
-        "Elapsed Time": a.elapsed_time,
-        "Total Elevation Gain": a.total_elevation_gain,
-        "Average Speed": a.average_speed,
-        "Max Speed": a.max_speed,
-        "Average cadence": a.average_cadence,
-        "Average heart rate": a.average_heartrate,
-        "Max heart rate": a.max_heartrate,
-        "Average power": a.average_watts,
-    }
-    for a in activities
-])
-
-print(df["Elapsed Time"].sum())
+df = get_data()
 
 activity_types = df["Sport"].unique()
-
-
-print(f"refresh_token={client.refresh_token}")
 
 total_dist = df["Distance"].sum()
 total_time = df["Elapsed Time"].sum()
@@ -100,13 +54,37 @@ dff = df[["Activity Date", "Activity Name", "Sport", "Elapsed Time"]].groupby("S
 #     # ]
 # }
 
+def big(name, value):
+    return pn.widgets.Number(name=name, value=value, font_size="40pt")
+
+
+metric_selector = pn.widgets.RadioButtonGroup(
+    name="Métrique",
+    options=["Distance", "Elapsed time", "Total Elevation gain", "Nombre d'activité"],
+    value="Distance",
+    button_style="outline",
+    button_type="primary",
+)
+
+interval_selector = pn.widgets.RadioButtonGroup(
+    name="Intervalle",
+    options=["Jours", "Semaines", "Mois", "Années"],
+    value="Mois",
+    button_style="outline",
+    button_type="primary",
+)
+
+
+
 summary_row = pn.Column(
     pn.FlexBox(
-        pn.widgets.Number(name="Activités", value=len(df), disabled=True),
-        pn.widgets.Number(name="Jours", value=total_days_on_strava, disabled=True),
-        pn.widgets.Number(name="Distance", value=round(total_dist/1000), disabled=True),
-        pn.widgets.Number(name="Heures", value=round(total_time/3600), disabled=True),
-        pn.widgets.Number(name="Dénivelé", value=round(df["Total Elevation Gain"].sum()), disabled=True),
+        big("Activités", len(df)),
+        big("Jours", total_days_on_strava),
+        big("Distance", round(total_dist/1000)),
+        big("Dénivelé", round(df["Total Elevation Gain"].sum())),
+        big("Heures de sport", round(total_time/3600)),
+        big("Heures en mouvement", round(df["Moving Time"].sum()/3600)),
+        # big("Vitesse moyenne", round(df["Average Speed"].mean()*3.6, 1)),
         justify_content="space-around", gap="16px"
     ),
 
@@ -114,9 +92,16 @@ summary_row = pn.Column(
             df,
             plugin="d3_y_bar",
             columns=["temps"],
+            group_by=["days"],
             split_by=["Sport"],
-            sort=[["Activity Date", "asc"]],
-            expressions={"distance_km": '"Distance"/1000', "temps": '"Elapsed Time"/60'},
+            # sort=[["Activity Date", "asc"]],
+            expressions={
+                "distance_km": '"Distance"/1000', "temps": '"Elapsed Time"/60',
+                "days": 'bucket("Activity Date", \'D\')',
+                "weeks": 'bucket("Activity Date", \'W\')',
+                "months": 'bucket("Activity Date", \'M\')',
+                "years": 'bucket("Activity Date", \'Y\')',
+            },
             height=300, sizing_mode="stretch_width",
             settings=False,
             title="Activités par sport (temps en minutes)"
@@ -125,8 +110,8 @@ summary_row = pn.Column(
         # pn.pane.Vega(summary_vega),
 
         pn.Row(
-            pn.widgets.RadioButtonGroup(name="value type", options=['Occurence','Temps de pratique', 'Distance', 'Dénivelé'], button_style="outline", button_type="primary"),
-            pn.widgets.RadioButtonGroup(name="interval", options=['Jours', 'Semaines', 'Mois', 'Années'], button_style="outline", button_type="primary"),
+            metric_selector,
+            interval_selector,
         ),
 )
 
@@ -261,22 +246,103 @@ print(df_months)
 print(df_months.reset_index()['Activity Date'].apply(lambda x: x.month_name(locale="fr_FR.UTF-8") + x.strftime(" %Y")))
 print(df_months.values.tolist())
 
-echart_bar = {
-    "tooltip": {
-        "trigger": 'axis',
-        "axisPointer": {
-            "type": 'shadow'
-        }
-    },
-    "xAxis": {
-        "data": df_months.reset_index()['Activity Date'].apply(lambda x: x.month_name(locale="fr_FR.UTF-8") + x.strftime(" %Y"))
-    },
-    "yAxis":{},
-    "series": [{
-        "type": "bar",
-        "data": df_months.values.tolist()
-    }]
-}
+
+def build_metric_bar_echart(dataframe, metric="Distance", freq="ME"):
+    metric_key = metric.strip().lower()
+    metric_map = {
+        "distance": {
+            "column": "Distance",
+            "label": "Distance (km)",
+            "transform": lambda s: (s / 1000).round(2),
+        },
+        "elapsed time": {
+            "column": "Elapsed Time",
+            "label": "Elapsed Time (h)",
+            "transform": lambda s: (s / 3600).round(2),
+        },
+        "total elevation gain": {
+            "column": "Total Elevation Gain",
+            "label": "Total Elevation Gain (m)",
+            "transform": lambda s: s.round(0),
+        },
+        "nombre d'activité": {
+            "column": None,
+            "label": "Nombre d'activités",
+            "transform": lambda s: s.astype(int),
+        },
+    }
+
+    if metric_key not in metric_map:
+        raise ValueError(
+            "metric must be one of: Distance, Elapsed time, Total Elevation gain, Nombre d'activité"
+        )
+
+    config = metric_map[metric_key]
+    grouper = pd.Grouper(key="Activity Date", freq=freq)
+
+    if config["column"] is None:
+        grouped = dataframe.groupby([grouper, "Sport"]).size().unstack(fill_value=0)
+    else:
+        grouped = (
+            dataframe.groupby([grouper, "Sport"])[config["column"]]
+            .sum()
+            .unstack(fill_value=0)
+        )
+
+    grouped = config["transform"](grouped.fillna(0))
+
+    if freq == "D":
+        labels = grouped.index.strftime("%Y-%m-%d").tolist()
+    elif freq == "W-MON":
+        labels = grouped.index.strftime("%Y-W%W").tolist()
+    elif freq == "YE":
+        labels = grouped.index.strftime("%Y").tolist()
+    else:
+        labels = grouped.index.strftime("%Y-%m").tolist()
+
+    return {
+        "tooltip": {
+            "trigger": "axis",
+            "axisPointer": {"type": "shadow"},
+        },
+        "legend": {
+            "type": "scroll",
+            "top": 0,
+        },
+        "xAxis": {
+            "type": "category",
+            "data": labels,
+        },
+        "yAxis": {
+            "type": "value",
+            "name": config["label"],
+        },
+        "series": [
+            {
+                "type": "bar",
+                "stack": "total",
+                "name": str(sport),
+                "data": grouped[sport].tolist(),
+            }
+            for sport in grouped.columns
+        ],
+    }
+
+@pn.depends(metric_selector.param.value, interval_selector.param.value)
+def metric_bar_chart(metric_value, interval_value):
+    freq_map = {
+        "Jours": "D",
+        "Semaines": "W-MON",
+        "Mois": "ME",
+        "Années": "YE",
+    }
+
+    return pn.pane.ECharts(
+        build_metric_bar_echart(df, metric=metric_value, freq=freq_map[interval_value]),
+        options={"opts": {"renderer": "svg"}},
+        height=400,
+        sizing_mode="stretch_width",
+    )
 
 ec2 = {
     "tooltip": {
@@ -296,11 +362,22 @@ ec2 = {
 }
 
 row3 = pn.Row(
-    pn.pane.ECharts(echart_bar, options={"opts": {"renderer":"svg"}}, height=400, sizing_mode="stretch_width"),
-    pn.pane.ECharts(ec2, options={"opts": {"renderer":"svg"}}, height=400, sizing_mode="stretch_width"),
+    metric_bar_chart,
+    # pn.pane.ECharts(ec2, options={"opts": {"renderer":"svg"}}, height=400, sizing_mode="stretch_width"),
 )
 
-tabs = pn.Tabs( ("Résumé global", pn.Column(summary_row, row1, row2, row3)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
+def test():
+    grouper = pd.Grouper(key="Activity Date", freq="ME")
+    dff = df.groupby([grouper, "Sport"]).size().unstack(fill_value=0)
+    return dff
+
+row4 = pn.Row(
+    
+    pn.pane.DataFrame(test())
+)
+
+# tabs = pn.Tabs( ("Résumé global", pn.Column(summary_row, row1, row2, row3)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
+tabs = pn.Tabs( ("Résumé global", pn.Column(summary_row, row3, row4)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
 for a in activity_types:
     tabs.append( (f"# {a}", pn.Column()) )
 

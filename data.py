@@ -16,17 +16,17 @@ client = Client(
     token_expires=int(os.environ.get("EXPIRES_AT"))
 )
 
-# activity_mapping = {
-#     "Run": "Course",
-#     "Walk": "Marche",
-#     "Swim": "Natation",
-#     "Ride": "Vélo",
-#     "Hike": "Randonnée",
-#     "MountainBikeRide": "VTT",
-#     "Yoga": "Yoga",
-#     "TrailRun": "Trail",
-#     "AlpineSki": "Ski alpin"
-# }
+activity_mapping = {
+    "Run": "Course",
+    "Walk": "Marche",
+    "Swim": "Natation",
+    "Ride": "Vélo de route",
+    "Hike": "Randonnée",
+    "MountainBikeRide": "VTT",
+    "Yoga": "Yoga",
+    "TrailRun": "Trail",
+    "AlpineSki": "Ski alpin"
+}
 
 def get_data():
 
@@ -36,7 +36,8 @@ def get_data():
         {
             "Activity Name": a.name,
             "Activity Date": a.start_date_local,
-            "Sport": a.sport_type.root,
+            "Activity Type": a.sport_type.root,
+            "Sport": activity_mapping.get(a.sport_type.root, a.sport_type.root),
             "Distance": a.distance,
             "Moving Time": a.moving_time,
             "Elapsed Time": a.elapsed_time,

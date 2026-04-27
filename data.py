@@ -6,8 +6,8 @@ from stravalib import Client
 
 load_dotenv(".strava.secrets")
 
-print(os.environ.get("STRAVA_CLIENT_ID"))
-print(os.environ.get("STRAVA_CLIENT_SECRET"))
+# print(os.environ.get("STRAVA_CLIENT_ID"))
+# print(os.environ.get("STRAVA_CLIENT_SECRET"))
 
 
 client = Client(
@@ -15,6 +15,18 @@ client = Client(
     refresh_token=os.environ.get("REFRESH_TOKEN"),
     token_expires=int(os.environ.get("EXPIRES_AT"))
 )
+
+# activity_mapping = {
+#     "Run": "Course",
+#     "Walk": "Marche",
+#     "Swim": "Natation",
+#     "Ride": "Vélo",
+#     "Hike": "Randonnée",
+#     "MountainBikeRide": "VTT",
+#     "Yoga": "Yoga",
+#     "TrailRun": "Trail",
+#     "AlpineSki": "Ski alpin"
+# }
 
 def get_data():
 

@@ -3,25 +3,10 @@ import panel as pn
 import plotly.graph_objs as go
 import locale
 
-from datetime import datetime
 from data import get_data
 from components.summary import create_summary_row
 
-pn.extension('perspective', 'plotly', 'echarts')
-
-
-# activity_mapping = {
-#     "Run": "Course",
-#     "Walk": "Marche",
-#     "Swim": "Natation",
-#     "Ride": "Vélo",
-#     "Hike": "Randonnée",
-#     "MountainBikeRide": "VTT",
-#     "Yoga": "Yoga",
-#     "TrailRun": "Trail",
-#     "AlpineSki": "Ski alpin"
-# }
-
+pn.extension('perspective', 'echarts')
 
 df = get_data()
 

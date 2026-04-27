@@ -2,10 +2,10 @@ import pandas as pd
 import panel as pn
 import plotly.graph_objs as go
 import locale
-import os
 
 from datetime import datetime
 from data import get_data
+from components.summary import create_summary_row
 
 pn.extension('perspective', 'plotly', 'echarts')
 
@@ -25,37 +25,11 @@ pn.extension('perspective', 'plotly', 'echarts')
 
 df = get_data()
 
-activity_types = df["Sport"].unique()
-
-total_dist = df["Distance"].sum()
-total_time = df["Elapsed Time"].sum()
-total_days_on_strava = (datetime.now() - df.tail(1)["Activity Date"].iloc[0].replace(tzinfo=None)).days
+unique_sports = df["Sport"].unique()
 
 # print(df.groupby(df["Activity Date"].dt.weekday)["Distance"].sum().reset_index().rename(columns={"Activity Date": "Month", "Distance": "Total Distance (km)"}))
 
 dff = df[["Activity Date", "Activity Name", "Sport", "Elapsed Time"]].groupby("Sport")["Elapsed Time"].sum()
-
-#graphs
-# * Distance / activité / mois
-
-
-
-# component = pn.pane.panel(dff)
-
-# summary_vega = {
-#     "$schema": "https://vega.github.io/schema/vega-lite/v6.json",
-#     "data": {"data": activities },
-#
-#     # "layer": [
-#     #     {
-#     #         "mark": "bar",
-#     #
-#     #     }
-#     # ]
-# }
-
-def big(name, value):
-    return pn.widgets.Number(name=name, value=value, font_size="40pt")
 
 
 metric_selector = pn.widgets.RadioButtonGroup(
@@ -72,47 +46,6 @@ interval_selector = pn.widgets.RadioButtonGroup(
     value="Mois",
     button_style="outline",
     button_type="primary",
-)
-
-
-
-summary_row = pn.Column(
-    pn.FlexBox(
-        big("Activités", len(df)),
-        big("Jours", total_days_on_strava),
-        big("Distance", round(total_dist/1000)),
-        big("Dénivelé", round(df["Total Elevation Gain"].sum())),
-        big("Heures de sport", round(total_time/3600)),
-        big("Heures en mouvement", round(df["Moving Time"].sum()/3600)),
-        # big("Vitesse moyenne", round(df["Average Speed"].mean()*3.6, 1)),
-        justify_content="space-around", gap="16px"
-    ),
-
-        pn.pane.Perspective(
-            df,
-            plugin="d3_y_bar",
-            columns=["temps"],
-            group_by=["days"],
-            split_by=["Sport"],
-            # sort=[["Activity Date", "asc"]],
-            expressions={
-                "distance_km": '"Distance"/1000', "temps": '"Elapsed Time"/60',
-                "days": 'bucket("Activity Date", \'D\')',
-                "weeks": 'bucket("Activity Date", \'W\')',
-                "months": 'bucket("Activity Date", \'M\')',
-                "years": 'bucket("Activity Date", \'Y\')',
-            },
-            height=300, sizing_mode="stretch_width",
-            settings=False,
-            title="Activités par sport (temps en minutes)"
-        ),
-
-        # pn.pane.Vega(summary_vega),
-
-        pn.Row(
-            metric_selector,
-            interval_selector,
-        ),
 )
 
 row1 = pn.Row(
@@ -361,7 +294,11 @@ ec2 = {
     }]
 }
 
-row3 = pn.Row(
+row3 = pn.Column(
+    pn.Row(
+        metric_selector,
+        interval_selector,
+    ),
     metric_bar_chart,
     # pn.pane.ECharts(ec2, options={"opts": {"renderer":"svg"}}, height=400, sizing_mode="stretch_width"),
 )
@@ -376,18 +313,84 @@ row4 = pn.Row(
     pn.pane.DataFrame(test())
 )
 
+row5 = pn.Row(
+    pn.pane.ECharts(
+        {
+            "title": {"text": f"Durée par semaine", "left": "center"},
+            "tooltip": {"trigger": "axis"},
+            "xAxis": {
+                "type": "category",
+                "data": df.groupby(pd.Grouper(key="Activity Date", freq="W-MON"))["Moving Time"].sum().index.strftime("%d-%m").tolist(),
+                "axisLabel": {"rotate": 45},
+            },
+            "yAxis": {"type": "value", "name": "Durée (h)"},
+            "series": [
+                {
+                    "type": "bar",
+                    "data": [round(v,1) for v in df.groupby(pd.Grouper(key="Activity Date", freq="W-MON"))["Moving Time"].sum()],
+                    "itemStyle": {"color": "#fc4c02"},  # Strava orange
+                }
+            ],
+            "grid": {"bottom": 80},
+        },
+        sizing_mode="stretch_both",
+    ),
+    pn.pane.ECharts(
+        {
+            # "title": {"text": "Répartition des activités par sport"},
+            "tooltip": {"trigger": "item"},
+            # "legend": {"orient": "vertical", "left": "right", "top": "middle"},
+            "series": [
+                {
+                    "name": "Activités",
+                    "type": "pie",
+                    "radius": ["40%", "70%"],
+                    "center": ["55%", "55%"],
+                    "data": [
+                        {"value": count, "name": sport}
+                        for sport, count in df["Sport"].value_counts().items()
+                    ],
+                    "emphasis": {
+                        "itemStyle": {
+                            "shadowBlur": 10,
+                            "shadowOffsetX": 0,
+                            "shadowColor": "rgba(0, 0, 0, 0.5)"
+                        }
+                    }
+                }
+            ]
+        },
+        # height=300,
+        sizing_mode="stretch_both",
+        ),
+        height=300,
+)
+
+sidebar = pn.Column(
+    pn.pane.Markdown("## Données\n---"),
+    pn.pane.Markdown("Dernière activité : " + df["Activity Date"].max().strftime("%d %b %Y"), styles={"color": "grey"}),
+    pn.widgets.Button(name="Recharger les données", button_type="primary", sizing_mode="stretch_width"),
+    pn.pane.Markdown("## Filtres"),
+    pn.widgets.MultiChoice(name="Sports", options=unique_sports.tolist(), value=[], placeholder="Tous les sports", sizing_mode="stretch_width"),
+)
+
 # tabs = pn.Tabs( ("Résumé global", pn.Column(summary_row, row1, row2, row3)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
-tabs = pn.Tabs( ("Résumé global", pn.Column(summary_row, row3, row4)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
-for a in activity_types:
-    tabs.append( (f"# {a}", pn.Column()) )
+tabs = pn.Tabs( ("Résumé global", pn.Column(row3)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
 
 tabs.append(("Raw data", pn.pane.DataFrame(df, sizing_mode="stretch_width")))
-tabs.append(("Raw data (perspective)", pn.pane.Perspective(df, sizing_mode="stretch_both")))
+tabs.append(("Raw data (perspective)", pn.pane.Perspective(df, sizing_mode="stretch_width")))
 
 pn.template.FastListTemplate(
     title="Strava analyzer",
     # main = [summary_row, row2, row3, pn.pane.Perspective(df, sizing_mode="stretch_both")],
-    main = tabs,
+    main = [create_summary_row(df), row5, tabs, row4],
+    # main = [pn.Row(
+    #     pn.pane.Markdown("## Activités par mois", styles={"color": "#333"}),
+    #     pn.pane.Markdown("## Activités par semaine et par sport", styles={"color": "#333"}),
+    #     pn.pane.Markdown("## Activités par intervalle et par sport", styles={"color": "#333"}),
+    # )],
+    sidebar = sidebar,
+    sidebar_width = 250,
     # accent = "orange",
     accent = "#FC5200"
 ).servable()

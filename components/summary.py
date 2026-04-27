@@ -35,25 +35,4 @@ def create_summary_row(df: pd.DataFrame):
             justify_content="space-evenly",
             # sizing_mode="stretch_width"
         ),
-
-        
-
-        pn.pane.Perspective(
-            df,
-            plugin="d3_y_bar",
-            columns=["temps"],
-            group_by=["days"],
-            split_by=["Sport"],
-            # sort=[["Activity Date", "asc"]],
-            expressions={
-                "distance_km": '"Distance"/1000', "temps": '"Elapsed Time"/60',
-                "days": 'bucket("Activity Date", \'D\')',
-                "weeks": 'bucket("Activity Date", \'W\')',
-                "months": 'bucket("Activity Date", \'M\')',
-                "years": 'bucket("Activity Date", \'Y\')',
-            },
-            height=300, sizing_mode="stretch_width",
-            settings=False,
-            # title="Activités par sport (temps en minutes)"
-        ),
     )

@@ -11,8 +11,6 @@ pn.extension('perspective', 'echarts')
 
 df = get_data()
 
-unique_sports = df["Sport"].unique()
-
 # print(df.groupby(df["Activity Date"].dt.weekday)["Distance"].sum().reset_index().rename(columns={"Activity Date": "Month", "Distance": "Total Distance (km)"}))
 
 dff = df[["Activity Date", "Activity Name", "Sport", "Elapsed Time"]].groupby("Sport")["Elapsed Time"].sum()
@@ -358,22 +356,36 @@ pages = [
     ("Raw data (perspective)", pn.pane.Perspective(df, sizing_mode="stretch_width")),
 ]
 
+sidebar = create_sidebar(pages=pages, dataframe=df)
+
+row6 = pn.pane.Perspective(
+            df,
+            plugin="d3_y_bar",
+            columns=["temps"],
+            group_by=["days"],
+            split_by=["Sport"],
+            # sort=[["Activity Date", "asc"]],
+            expressions={
+                "distance_km": '"Distance"/1000', "temps": '"Elapsed Time"/60',
+                "days": 'bucket("Activity Date", \'D\')',
+                "weeks": 'bucket("Activity Date", \'W\')',
+                "months": 'bucket("Activity Date", \'M\')',
+                "years": 'bucket("Activity Date", \'Y\')',
+            },
+            height=300, sizing_mode="stretch_width",
+            settings=False,
+            # title="Activités par sport (temps en minutes)"
+        )
+
 # tabs = pn.Tabs( ("Résumé global", pn.Column(summary_row, row1, row2, row3)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
 tabs = pn.Tabs(*pages, dynamic=True, tabs_location="left", sizing_mode="stretch_both")
 
-sidebar = create_sidebar(tabs=tabs, pages=pages, dataframe=df, unique_sports=unique_sports)
 
 pn.template.FastListTemplate(
     title="Strava analyzer",
     # main = [summary_row, row2, row3, pn.pane.Perspective(df, sizing_mode="stretch_both")],
-    main = [create_summary_row(df), row5, tabs, row4],
-    # main = [pn.Row(
-    #     pn.pane.Markdown("## Activités par mois", styles={"color": "#333"}),
-    #     pn.pane.Markdown("## Activités par semaine et par sport", styles={"color": "#333"}),
-    #     pn.pane.Markdown("## Activités par intervalle et par sport", styles={"color": "#333"}),
-    # )],
+    main = [create_summary_row(df), row5, row3, row4, row6],
     sidebar = sidebar,
     sidebar_width = 250,
-    # accent = "orange",
     accent = "#FC5200"
 ).servable()

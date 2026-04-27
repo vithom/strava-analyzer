@@ -11,3 +11,5 @@ wheels/
 
 # Others
 .strava.secrets
+data/
+libs/

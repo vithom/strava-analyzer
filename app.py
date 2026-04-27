@@ -5,6 +5,7 @@ import locale
 
 from data import get_data
 from components.summary import create_summary_row
+from components.sidebar import create_sidebar
 
 pn.extension('perspective', 'echarts')
 
@@ -351,19 +352,16 @@ row5 = pn.Row(
         height=300,
 )
 
-sidebar = pn.Column(
-    pn.pane.Markdown("## Données\n---"),
-    pn.pane.Markdown("Dernière activité : " + df["Activity Date"].max().strftime("%d %b %Y"), styles={"color": "grey"}),
-    pn.widgets.Button(name="Recharger les données", button_type="primary", sizing_mode="stretch_width"),
-    pn.pane.Markdown("## Filtres"),
-    pn.widgets.MultiChoice(name="Sports", options=unique_sports.tolist(), value=[], placeholder="Tous les sports", sizing_mode="stretch_width"),
-)
+pages = [
+    ("Résumé global", pn.Column(row3)),
+    ("Raw data", pn.pane.DataFrame(df, sizing_mode="stretch_width")),
+    ("Raw data (perspective)", pn.pane.Perspective(df, sizing_mode="stretch_width")),
+]
 
 # tabs = pn.Tabs( ("Résumé global", pn.Column(summary_row, row1, row2, row3)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
-tabs = pn.Tabs( ("Résumé global", pn.Column(row3)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
+tabs = pn.Tabs(*pages, dynamic=True, tabs_location="left", sizing_mode="stretch_both")
 
-tabs.append(("Raw data", pn.pane.DataFrame(df, sizing_mode="stretch_width")))
-tabs.append(("Raw data (perspective)", pn.pane.Perspective(df, sizing_mode="stretch_width")))
+sidebar = create_sidebar(tabs=tabs, pages=pages, dataframe=df, unique_sports=unique_sports)
 
 pn.template.FastListTemplate(
     title="Strava analyzer",

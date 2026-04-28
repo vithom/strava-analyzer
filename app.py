@@ -6,6 +6,7 @@ import locale
 from data import get_data
 from components.summary import create_summary_row
 from components.sidebar import create_sidebar
+from components.bargraph import create_bargraph
 
 pn.extension('perspective', 'echarts')
 
@@ -14,23 +15,6 @@ df = get_data()
 # print(df.groupby(df["Activity Date"].dt.weekday)["Distance"].sum().reset_index().rename(columns={"Activity Date": "Month", "Distance": "Total Distance (km)"}))
 
 dff = df[["Activity Date", "Activity Name", "Sport", "Elapsed Time"]].groupby("Sport")["Elapsed Time"].sum()
-
-
-metric_selector = pn.widgets.RadioButtonGroup(
-    name="Métrique",
-    options=["Distance", "Elapsed time", "Total Elevation gain", "Nombre d'activité"],
-    value="Distance",
-    button_style="outline",
-    button_type="primary",
-)
-
-interval_selector = pn.widgets.RadioButtonGroup(
-    name="Intervalle",
-    options=["Jours", "Semaines", "Mois", "Années"],
-    value="Mois",
-    button_style="outline",
-    button_type="primary",
-)
 
 row1 = pn.Row(
     pn.pane.Plotly(
@@ -164,128 +148,7 @@ print(df_months.reset_index()['Activity Date'].apply(lambda x: x.month_name(loca
 print(df_months.values.tolist())
 
 
-def build_metric_bar_echart(dataframe, metric="Distance", freq="ME"):
-    metric_key = metric.strip().lower()
-    metric_map = {
-        "distance": {
-            "column": "Distance",
-            "label": "Distance (km)",
-            "transform": lambda s: (s / 1000).round(2),
-        },
-        "elapsed time": {
-            "column": "Elapsed Time",
-            "label": "Elapsed Time (h)",
-            "transform": lambda s: (s / 3600).round(2),
-        },
-        "total elevation gain": {
-            "column": "Total Elevation Gain",
-            "label": "Total Elevation Gain (m)",
-            "transform": lambda s: s.round(0),
-        },
-        "nombre d'activité": {
-            "column": None,
-            "label": "Nombre d'activités",
-            "transform": lambda s: s.astype(int),
-        },
-    }
 
-    if metric_key not in metric_map:
-        raise ValueError(
-            "metric must be one of: Distance, Elapsed time, Total Elevation gain, Nombre d'activité"
-        )
-
-    config = metric_map[metric_key]
-    grouper = pd.Grouper(key="Activity Date", freq=freq)
-
-    if config["column"] is None:
-        grouped = dataframe.groupby([grouper, "Sport"]).size().unstack(fill_value=0)
-    else:
-        grouped = (
-            dataframe.groupby([grouper, "Sport"])[config["column"]]
-            .sum()
-            .unstack(fill_value=0)
-        )
-
-    grouped = config["transform"](grouped.fillna(0))
-
-    if freq == "D":
-        labels = grouped.index.strftime("%Y-%m-%d").tolist()
-    elif freq == "W-MON":
-        labels = grouped.index.strftime("%Y-W%W").tolist()
-    elif freq == "YE":
-        labels = grouped.index.strftime("%Y").tolist()
-    else:
-        labels = grouped.index.strftime("%Y-%m").tolist()
-
-    return {
-        "tooltip": {
-            "trigger": "axis",
-            "axisPointer": {"type": "shadow"},
-        },
-        "legend": {
-            "type": "scroll",
-            "top": 0,
-        },
-        "xAxis": {
-            "type": "category",
-            "data": labels,
-        },
-        "yAxis": {
-            "type": "value",
-            "name": config["label"],
-        },
-        "series": [
-            {
-                "type": "bar",
-                "stack": "total",
-                "name": str(sport),
-                "data": grouped[sport].tolist(),
-            }
-            for sport in grouped.columns
-        ],
-    }
-
-@pn.depends(metric_selector.param.value, interval_selector.param.value)
-def metric_bar_chart(metric_value, interval_value):
-    freq_map = {
-        "Jours": "D",
-        "Semaines": "W-MON",
-        "Mois": "ME",
-        "Années": "YE",
-    }
-
-    return pn.pane.ECharts(
-        build_metric_bar_echart(df, metric=metric_value, freq=freq_map[interval_value]),
-        options={"opts": {"renderer": "svg"}},
-        height=400,
-        sizing_mode="stretch_width",
-    )
-
-ec2 = {
-    "tooltip": {
-        "trigger": 'axis',
-        "axisPointer": {
-            "type": 'shadow'
-        }
-    },
-    "xAxis":{
-        "data": df_month3.reset_index()['Activity Date'].apply(lambda x: x.strftime("%d-%m"))#x.month_name(locale="fr_FR.UTF-8") + x.strftime(" %Y"))
-    },
-    "yAxis":{},
-    "series": [{
-        "type": "bar",
-        "data": df_month3.values.astype(int).tolist()
-    }]
-}
-
-row3 = pn.Column(
-    pn.Row(
-        metric_selector,
-        interval_selector,
-    ),
-    metric_bar_chart,
-    # pn.pane.ECharts(ec2, options={"opts": {"renderer":"svg"}}, height=400, sizing_mode="stretch_width"),
-)
 
 def test():
     grouper = pd.Grouper(key="Activity Date", freq="ME")
@@ -369,13 +232,13 @@ row6 = pn.pane.Perspective(
         )
 
 pages = [
-    ("Résumé global", [create_summary_row(df), row5, row3, row4, row6]),
+    ("Résumé global", [create_summary_row(df), row5, create_bargraph(df), row4, row6]),
     ("Raw data", pn.pane.DataFrame(df, sizing_mode="stretch_width")),
     ("Raw data (perspective)", pn.pane.Perspective(df))
 ]
 
 def test():
-    return [create_summary_row(df), row5, row3, row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)]
+    return [create_summary_row(df), row5, create_bargraph(df), row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)]
 
 sidebar = create_sidebar(pages=pages, dataframe=df)
 
@@ -385,7 +248,7 @@ def page(index):
 
 pn.template.FastListTemplate(
     title="Strava analyzer",
-    main = [create_summary_row(df), row5, row3, row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)],
+    main = [create_summary_row(df), row5, create_bargraph(df), row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)],
     # main = pn.bind(page, sidebar[1]),
     # main_layout=None,
     sidebar = sidebar,

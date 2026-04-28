@@ -29,9 +29,12 @@ def create_summary_row(df: pd.DataFrame):
         ),
 
         pn.FlexBox(
-            big("Distance", round(total_distance/1000), "km"),
-            big("Temps", round(df['Moving Time'].sum()/3600), "h"),
-            big("Dénivelé", round(total_elevation), "m"),
+            big("🛣️ Distance", round(total_distance/1000), "km"),
+            big("⏱️ Temps", round(df['Moving Time'].sum()/3600), "h"),
+            big("📈 Dénivelé", round(total_elevation), "m"),
+            big("💗 FC max", round(df['Max Heart Rate'].max())),
+
+
             justify_content="space-evenly",
             # sizing_mode="stretch_width"
         ),

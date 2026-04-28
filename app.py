@@ -293,7 +293,6 @@ def test():
     return dff
 
 row4 = pn.Row(
-    
     pn.pane.DataFrame(test())
 )
 
@@ -350,14 +349,6 @@ row5 = pn.Row(
         height=300,
 )
 
-pages = [
-    ("Résumé global", pn.Column(row3)),
-    ("Raw data", pn.pane.DataFrame(df, sizing_mode="stretch_width")),
-    ("Raw data (perspective)", pn.pane.Perspective(df, sizing_mode="stretch_width")),
-]
-
-sidebar = create_sidebar(pages=pages, dataframe=df)
-
 row6 = pn.pane.Perspective(
             df,
             plugin="d3_y_bar",
@@ -377,15 +368,27 @@ row6 = pn.pane.Perspective(
             # title="Activités par sport (temps en minutes)"
         )
 
-# tabs = pn.Tabs( ("Résumé global", pn.Column(summary_row, row1, row2, row3)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
-tabs = pn.Tabs(*pages, dynamic=True, tabs_location="left", sizing_mode="stretch_both")
+pages = [
+    ("Résumé global", pn.Column(create_summary_row(df), row5, row3, row4, row6)),
+    ("Raw data", pn.pane.DataFrame(df, sizing_mode="stretch_width")),
+    ("Raw data (perspective)", pn.pane.Perspective(df))
+]
 
+def page(page_name):
+    # return pages[page_name][0]
+    return pages[page_name][1]
+
+sidebar = create_sidebar(pages=pages, dataframe=df)
+
+# tabs = pn.Tabs( ("Résumé global", pn.Column(summary_row, row1, row2, row3)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
+# tabs = pn.Tabs(*pages, dynamic=True, tabs_location="left", sizing_mode="stretch_both")
 
 pn.template.FastListTemplate(
     title="Strava analyzer",
-    # main = [summary_row, row2, row3, pn.pane.Perspective(df, sizing_mode="stretch_both")],
-    main = [create_summary_row(df), row5, row3, row4, row6],
+    main = [create_summary_row(df), row5, row3, row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)],
+    # main = pn.bind(page, sidebar[1]),
+    # main_layout=None,
     sidebar = sidebar,
     sidebar_width = 250,
-    accent = "#FC5200"
+    accent = "#FC5200",
 ).servable()

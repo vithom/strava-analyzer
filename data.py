@@ -46,7 +46,7 @@ def get_data():
             "Max Speed": a.max_speed,
             "Average cadence": a.average_cadence,
             "Average heart rate": a.average_heartrate,
-            "Max heart rate": a.max_heartrate,
+            "Max Heart Rate": a.max_heartrate,
             "Average power": a.average_watts,
         }
         for a in activities

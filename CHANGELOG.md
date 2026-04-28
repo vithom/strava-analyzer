@@ -4,4 +4,4 @@
 
 ## [0.1.0] - 2026-04-27
 
-_Initial release_
+:seedling: _Initial release_

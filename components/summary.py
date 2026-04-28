@@ -34,7 +34,6 @@ def create_summary_row(df: pd.DataFrame):
             big("📈 Dénivelé", round(total_elevation), "m"),
             big("💗 FC max", round(df['Max Heart Rate'].max())),
 
-
             justify_content="space-evenly",
             # sizing_mode="stretch_width"
         ),

@@ -369,19 +369,19 @@ row6 = pn.pane.Perspective(
         )
 
 pages = [
-    ("Résumé global", pn.Column(create_summary_row(df), row5, row3, row4, row6)),
+    ("Résumé global", [create_summary_row(df), row5, row3, row4, row6]),
     ("Raw data", pn.pane.DataFrame(df, sizing_mode="stretch_width")),
     ("Raw data (perspective)", pn.pane.Perspective(df))
 ]
 
-def page(page_name):
-    # return pages[page_name][0]
-    return pages[page_name][1]
+def test():
+    return [create_summary_row(df), row5, row3, row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)]
 
 sidebar = create_sidebar(pages=pages, dataframe=df)
 
-# tabs = pn.Tabs( ("Résumé global", pn.Column(summary_row, row1, row2, row3)), dynamic=True, tabs_location="left", sizing_mode="stretch_both")
-# tabs = pn.Tabs(*pages, dynamic=True, tabs_location="left", sizing_mode="stretch_both")
+def page(index):
+    return pages[index][1]
+
 
 pn.template.FastListTemplate(
     title="Strava analyzer",

@@ -16,60 +16,6 @@ df = get_data()
 
 dff = df[["Activity Date", "Activity Name", "Sport", "Elapsed Time"]].groupby("Sport")["Elapsed Time"].sum()
 
-row1 = pn.Row(
-    pn.pane.Plotly(
-        df.groupby(pd.Grouper(key="Activity Date", freq="ME"))["Distance"]
-            .sum()
-            .reset_index()
-            .pipe(
-            lambda d: {
-                "data": [
-                    {
-                        "x": d["Activity Date"],
-                        "y": d["Distance"],
-                        "type": "bar",
-                    }
-                ],
-                "layout": {
-                    "title": "Total Distance per Month",
-                    "xaxis": {"title": "Month"},
-                    "yaxis": {"title": "Total Distance (km)"},
-                },
-            }
-        ),
-        sizing_mode="stretch_width",
-    ),
-    pn.pane.Plotly(
-        df.groupby([pd.Grouper(key="Activity Date", freq="W-MON"), "Sport"])["Distance"]
-            .sum()
-            .reset_index()
-            .pivot(index="Activity Date", columns="Sport", values="Distance")
-            .fillna(0)
-            .pipe(
-                lambda pivot: {
-                    "data": [
-                        {
-                            # shift week labels one week earlier so each bar represents the week starting a week before
-                            "x": (pivot.index - pd.Timedelta(weeks=1)),
-                            "y": pivot[col].values,
-                            "type": "bar",
-                            "name": str(col),
-                        }
-                        for col in pivot.columns
-                    ],
-                    "layout": {
-                        "title": "Weekly Distance by Sport (Stacked)",
-                        "barmode": "stack",
-                        "xaxis": {"title": "Week"},
-                        "yaxis": {"title": "Total Distance (km)"},
-                        "legend": {"orientation": "h", "y": -0.2},
-                    },
-                }
-            ),
-        sizing_mode="stretch_width"
-    ),
-)
-
 df_months = df.groupby(pd.Grouper(key="Activity Date", freq="ME"))["Distance"].sum()
 df_months2 = df.resample("1W", on="Activity Date", offset="1W").agg({"Distance": "sum", "Max Speed": "max"})
 df_month3 = df.groupby([pd.Grouper(key="Activity Date", freq="W-MON"), "Sport"])["Distance"].sum()
@@ -77,87 +23,19 @@ df_month3 = df.groupby([pd.Grouper(key="Activity Date", freq="W-MON"), "Sport"])
 row2 = pn.Row(
     pn.pane.DataFrame(df_months),
     pn.pane.DataFrame(df_months2),
-    # pn.pane.ECharts({
-    #     "tooltip": {
-    #         "trigger": 'axis',
-    #         "axisPointer": {
-    #             "type": 'shadow'
-    #         }
-    #     },
-    #     "xAxis": {
-    #         "data": df_months2.reset_index()['Activity Date'].apply(lambda x: x.strftime("%d %b %Y"))
-    #     },
-    #     "yAxis":{},
-    #     "series": [{
-    #         "type": "bar",
-    #         "data": df_months2['Distance'].values.tolist()
-    #     },
-    #     {
-    #         "type": "line",
-    #         "yAxisIndex": 1,
-    #         "data": df_months2['Max Speed'].values.tolist()
-    #     }],
-    #     "yAxis": [
-    #         {
-    #             "type": 'value',
-    #             "name": 'Distance (km)',
-    #         },
-    #         {
-    #             "type": 'value',
-    #             "name": 'Max Speed (km/h)',
-    #         }
-    #     ]
-    # # }, options={"opts": {"renderer":"svg"}
-    # }, sizing_mode="stretch_width", height=500)
-    pn.pane.ECharts(df.groupby([pd.Grouper(key="Activity Date", freq="W-MON"), "Sport"])["Distance"]
-            .sum()
-            .reset_index()
-            .pivot(index="Activity Date", columns="Sport", values="Distance")
-            .fillna(0)
-            .pipe(
-                lambda pivot: {
-                    "data": [
-                        {
-                            # shift week labels one week earlier so each bar represents the week starting a week before
-                            "x": (pivot.index - pd.Timedelta(weeks=1)),
-                            "y": pivot[col].values,
-                            "type": "bar",
-                            "name": str(col),
-                        }
-                        for col in pivot.columns
-                    ],
-                    "layout": {
-                        "title": "Weekly Distance by Sport (Stacked)",
-                        "barmode": "stack",
-                        "xaxis": {"title": "Week"},
-                        "yaxis": {"title": "Total Distance (km)"},
-                        "legend": {"orientation": "h", "y": -0.2},
-                    },
-                }
-            ), sizing_mode="stretch_width", height=500)
+    pn.pane.DataFrame(df_month3),
 )
 
-print(locale.getlocale())
-
-from time import strftime, gmtime
-
-print(strftime("%B %b", gmtime()))
-
 print(df_months)
-print(df_months.reset_index()['Activity Date'].apply(lambda x: x.month_name(locale="fr_FR.UTF-8") + x.strftime(" %Y")))
+print(df_months.reset_index()['Activity Date'].apply(lambda x: x.month_name(locale="fr_FR") + x.strftime(" %Y")))
 print(df_months.values.tolist())
-
-
-
 
 def test():
     grouper = pd.Grouper(key="Activity Date", freq="ME")
     dff = df.groupby([grouper, "Sport"]).size().unstack(fill_value=0)
     return dff
 
-row4 = pn.Row(
-    pn.pane.DataFrame(test())
-)
+row4 = pn.pane.DataFrame(test())
 
 row5 = pn.Row(
     pn.pane.ECharts(
@@ -248,7 +126,7 @@ def page(index):
 
 pn.template.FastListTemplate(
     title="Strava analyzer",
-    main = [create_summary_row(df), row5, create_bargraph(df), row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)],
+    main = [create_summary_row(df), row5, row2, create_bargraph(df), row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)],
     # main = pn.bind(page, sidebar[1]),
     # main_layout=None,
     sidebar = sidebar,

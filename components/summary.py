@@ -23,12 +23,13 @@ def create_summary_row(df: pd.DataFrame):
     
     return pn.Column(
 
-        metric_card(
-            f"{len(df)} activités depuis {total_days_on_strava} jours sur {len(unique_sports)} sports",
-            color="#fc5200"
-        ),
+        # metric_card(
+        #     f"{len(df)} activités depuis {total_days_on_strava} jours sur {len(unique_sports)} sports",
+        #     color="#fc5200"
+        # ),
 
         pn.FlexBox(
+            big("📊 Activités", len(df)),
             big("🛣️ Distance", round(total_distance/1000), "km"),
             big("⏱️ Temps", round(df['Moving Time'].sum()/3600), "h"),
             big("📈 Dénivelé", round(total_elevation), "m"),

@@ -33,7 +33,7 @@ row2 = pn.Row(
 )
 
 print(df_months)
-print(df_months.reset_index()['Activity Date'].apply(lambda x: x.month_name(locale="fr_FR") + x.strftime(" %Y")))
+print(df_months.reset_index()['Activity Date'].apply(lambda x: x.month_name(locale="fr_FR.UTF-8") + x.strftime(" %Y")))
 print(df_months.values.tolist())
 
 def test():

@@ -3,13 +3,19 @@ import panel as pn
 import plotly.graph_objs as go
 import locale
 
-from data import get_data
+from tornado import template
+
+from data import get_data, get_data_csv
+
+from pages.home import HomePage
+
 from components.summary import create_summary_row
 from components.sidebar import create_sidebar
 from components.bargraph import create_bargraph
 
 pn.extension('perspective', 'echarts')
 
+# df = get_data_csv()
 df = get_data()
 
 # print(df.groupby(df["Activity Date"].dt.weekday)["Distance"].sum().reset_index().rename(columns={"Activity Date": "Month", "Distance": "Total Distance (km)"}))
@@ -110,26 +116,42 @@ row6 = pn.pane.Perspective(
         )
 
 pages = [
-    ("Résumé global", [create_summary_row(df), row5, create_bargraph(df), row4, row6]),
+    ("Résumé global", HomePage(df=df)),
     ("Raw data", pn.pane.DataFrame(df, sizing_mode="stretch_width")),
-    ("Raw data (perspective)", pn.pane.Perspective(df))
+    ("Raw data (perspective)", pn.Row(pn.pane.Perspective(df, sizing_mode="stretch_both"), styles={"min-height": "600px"})),
 ]
 
-def test():
-    return [create_summary_row(df), row5, create_bargraph(df), row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)]
+# def test():
+#     return [create_summary_row(df), row5, create_bargraph(df), row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)]
 
-sidebar = create_sidebar(pages=pages, dataframe=df)
+sidebar, page_selector = create_sidebar(pages=pages, dataframe=df)
 
-def page(index):
-    return pages[index][1]
+@pn.depends(page_selector)
+def render_pages(name):
+    # print(type(template.main.objects[1]))
+    # template.main.clear()
+    # template.main[0].objects = [pages_test[name.new].view()]
+    return pages[name][1]
+    # return pages_test[name].view()
 
+# watcher = page_selector.param.watch(render_pages, "value")
 
-pn.template.FastListTemplate(
+template = pn.template.FastListTemplate(
     title="Strava analyzer",
-    main = [create_summary_row(df), row5, row2, create_bargraph(df), row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)],
+    # main = [create_summary_row(df), row5, row2, create_bargraph(df), row4, row6, pn.pane.Perspective(df, sizing_mode="stretch_width", height=600)],
     # main = pn.bind(page, sidebar[1]),
+    # main = pn.bind(page_test, page_selector),
+    # main = [pages_test["home"]],
+    main = [render_pages],
+    # main = page(0),
     # main_layout=None,
-    sidebar = sidebar,
+    sidebar = [sidebar],
     sidebar_width = 250,
+    shadow = True,
+    # neutral_color="#FFFFFF",
     accent = "#FC5200",
-).servable()
+)
+
+# template.main.append(pn.pane.Markdown("Contenu de la page principale"))
+
+template.servable()

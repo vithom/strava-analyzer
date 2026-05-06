@@ -28,6 +28,12 @@ activity_mapping = {
     "AlpineSki": "Ski alpin"
 }
 
+def get_data_csv():
+    df = pd.read_csv("data/export_171438604_20251105/activities.csv", parse_dates=["Activity Date"])
+    df["Sport"] = df["Activity Type"].map(activity_mapping).fillna(df["Activity Type"])
+    df["Total Elevation Gain"] = df["Elevation Gain"].fillna(0)
+    return df
+
 def get_data():
 
     activities = client.get_activities()

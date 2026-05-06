@@ -39,4 +39,4 @@ def create_sidebar(pages, dataframe):
             placeholder="Tous les sports",
             sizing_mode="stretch_width",
         ),
-    )
+    ),page_selector

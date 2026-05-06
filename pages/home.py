@@ -3,6 +3,7 @@ import panel as pn
 import param
 
 from components.summary import create_summary_row
+from components.heatmap import create_heatmap
 
 class HomePage(pn.viewable.Viewer):
     df = param.DataFrame(doc="DataFrame des activités Strava")
@@ -10,4 +11,5 @@ class HomePage(pn.viewable.Viewer):
     def __panel__(self) -> pn.viewable.Viewable:
         return pn.Column(
             create_summary_row(self.df),
+            create_heatmap(self.df),
         )

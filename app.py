@@ -117,6 +117,7 @@ row6 = pn.pane.Perspective(
 
 pages = [
     ("Résumé global", HomePage(df=df)),
+    ("Details", pn.Column(row5, create_bargraph(df), row6)),
     ("Raw data", pn.pane.DataFrame(df, sizing_mode="stretch_width")),
     ("Raw data (perspective)", pn.Row(pn.pane.Perspective(df, sizing_mode="stretch_both"), styles={"min-height": "600px"})),
 ]

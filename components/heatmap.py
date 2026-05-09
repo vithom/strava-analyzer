@@ -1,5 +1,45 @@
+from PIL.ImageShow import show
 import pandas as pd
 import panel as pn
+
+def c_heatmap(df):
+    # dff = df[df['Activity Date'].dt.year == 2025]
+    dff = df.copy()
+    dff['date_str'] = dff['Activity Date'].dt.strftime('%Y-%m-%d')
+    activity_counts = dff.groupby('date_str').size().reset_index(name='count')
+    data = [[row['date_str'], row['count'], row['count']] for _, row in activity_counts.iterrows()]
+    # print(data)
+    
+    config = {
+        "title": {"text": "Heatmap des activités", "left": "center"},
+        "tooltip": {
+            # "trigger": "axis",
+            # "formatter": "{a}: {c} activités<br/>{b}"
+        },
+        # "visualMap": {
+        #     "min": 0,
+        #     "max": activity_counts['count'].max() if not activity_counts.empty else 0
+        # },
+        "calendar": {
+            # "orient": "vertical",
+            "range": [activity_counts['date_str'].min(), activity_counts['date_str'].max()],
+            "dayLabel": {
+                "firstDay": 1,
+                "nameMap": ["Di", "Lu", "Ma", "Me", "Je", "Ve", "Sa"]
+            },
+            "monthLabel": {
+                "nameMap": ["Jan", "Fév", "Mar", "Avr", "Mai", "Jun", "Jul", "Aoû", "Sep", "Oct", "Nov", "Déc"]
+            }
+        },
+        "series": {
+            "type": "heatmap",
+                "label": {"show": "true"},
+            "coordinateSystem": "calendar",
+            "data": data
+        }
+    }
+
+    return pn.Row(pn.pane.ECharts(config, sizing_mode="stretch_both"))
 
 def create_heatmap(df):
     """
@@ -23,8 +63,8 @@ def create_heatmap(df):
     config = {
         "title": {"text": "Heatmap des activités par jour (2025)", "left": "center"},
         "tooltip": {
-            "position": "top",
-            "formatter": "{b}: {c} activités"
+            # "position": "top",
+            # "formatter": "{b}: {c} activités"
         },
         "visualMap": {
             "min": 0,
@@ -44,13 +84,13 @@ def create_heatmap(df):
         },
         "calendar": {
             "top": 120,
-            "left": 30,
-            "right": 30,
+            # "left": 30,
+            # "right": 30,
             # "cellSize": ["auto", 13],
-            "range": ["2025-08","2026-05-06"],
+            "range": "2025",
             "itemStyle": {
-                "borderWidth": 0.5,
-                "borderColor": "#111"
+                # "borderWidth": 0.5,
+                "borderColor": ""
             },
             "yearLabel": {"show": False},
             "monthLabel": {
@@ -72,4 +112,4 @@ def create_heatmap(df):
         }
     }
     
-    return pn.Column(pn.pane.ECharts(config, sizing_mode="stretch_both"), pn.pane.DataFrame(activity_counts))
+    return pn.pane.ECharts(config, sizing_mode="stretch_both")

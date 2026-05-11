@@ -4,6 +4,7 @@ import param
 
 from components.summary import create_summary_row
 from components.heatmap import create_heatmap, c_heatmap
+from components.graph_cumul import create_graph_cumul
 
 class HomePage(pn.viewable.Viewer):
     df = param.DataFrame(doc="DataFrame des activités Strava")
@@ -12,5 +13,6 @@ class HomePage(pn.viewable.Viewer):
         return pn.Column(
             create_summary_row(self.df),
             create_heatmap(self.df),
-            c_heatmap(self.df)
+            # c_heatmap(self.df),
+            create_graph_cumul(self.df),
         )

@@ -89,11 +89,17 @@ def create_heatmap(df):
         categories = [sp for sp in present_sports]
         colors = [sport_colors.get(sp, "#999999") for sp in categories]
 
-        dat = [[date, row["sport_n"], row["Sport"]] for date, row in s.iterrows()]
+        dat = [
+            {
+                "value": [date, row["sport_n"], row["Sport"]],
+                "name": f"{date} : {row['sport_n']} activité(s) - {row['Sport']}",
+            }
+            for date, row in s.iterrows()
+        ]
 
         config = {
             "tooltip": {
-                "formatter": None,
+                "formatter": "{b}",
             },
             "visualMap": {
                 "type": "piecewise",
@@ -106,6 +112,8 @@ def create_heatmap(df):
             "calendar": {
                 "top": 70,
                 "range": year,
+                # "left": 30,
+                "yearLabel": {"show": False},
                 "dayLabel": {
                     "firstDay": 1,
                     "nameMap": DAY_MAP,
@@ -121,6 +129,8 @@ def create_heatmap(df):
                 "label": {
                     "show": True,
                     "formatter": "{@[1]}",
+                    # "color": "#000",
+                    # "fontSize": 14,
                 },
             },
         }
@@ -130,5 +140,4 @@ def create_heatmap(df):
     return pn.Column(
         year_select,
         pn.bind(build_heatmap, year_select),
-        # pn.Row(pn.pane.DataFrame(activity_counts), pn.pane.DataFrame(s), pn.pane.DataFrame(d)),
     )
